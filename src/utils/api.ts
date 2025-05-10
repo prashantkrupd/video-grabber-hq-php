@@ -25,13 +25,16 @@ export interface DownloadResult {
   quality: string;
 }
 
-const API_URL = '/api';
+// Use absolute path to make sure requests go to the correct endpoint
+const API_URL = window.location.origin + '/api';
 
 /**
  * Fetch video information from a YouTube URL
  */
 export async function fetchVideoInfo(url: string): Promise<VideoInfo> {
   try {
+    console.log('Fetching video info from:', `${API_URL}/downloader`);
+    
     const response = await fetch(`${API_URL}/downloader`, {
       method: 'POST',
       headers: {
@@ -44,10 +47,12 @@ export async function fetchVideoInfo(url: string): Promise<VideoInfo> {
     });
 
     if (!response.ok) {
+      console.error(`API Error: ${response.status} ${response.statusText}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('API Response:', result);
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to fetch video info');
@@ -65,6 +70,8 @@ export async function fetchVideoInfo(url: string): Promise<VideoInfo> {
  */
 export async function downloadVideo(videoId: string, quality: string): Promise<DownloadResult> {
   try {
+    console.log('Downloading video:', videoId, 'with quality:', quality);
+    
     const response = await fetch(`${API_URL}/downloader`, {
       method: 'POST',
       headers: {
@@ -78,10 +85,12 @@ export async function downloadVideo(videoId: string, quality: string): Promise<D
     });
 
     if (!response.ok) {
+      console.error(`API Error: ${response.status} ${response.statusText}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('Download result:', result);
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to download video');

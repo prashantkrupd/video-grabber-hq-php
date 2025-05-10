@@ -28,6 +28,7 @@ const VideoUrlInput: React.FC<VideoUrlInputProps> = ({ onVideoSubmit, isLoading 
       return;
     }
     
+    toast.info('Fetching video information...');
     onVideoSubmit(url);
   };
   
@@ -38,7 +39,7 @@ const VideoUrlInput: React.FC<VideoUrlInputProps> = ({ onVideoSubmit, isLoading 
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <Input
             type="text"
-            placeholder="Paste YouTube video URL here..."
+            placeholder="Paste YouTube video URL here (e.g., https://youtu.be/abcdefg or https://www.youtube.com/watch?v=abcdefg)"
             className="pl-10 py-6 text-lg"
             value={url}
             onChange={(e) => setUrl(e.target.value)}

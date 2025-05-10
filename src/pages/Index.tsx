@@ -18,12 +18,14 @@ const Index = () => {
   const handleVideoSubmit = async (url: string) => {
     setIsLoading(true);
     try {
+      console.log('Submitting URL for analysis:', url);
       const info = await fetchVideoInfo(url);
+      console.log('Successfully fetched video info:', info);
       setVideoInfo(info);
       toast.success('Video found successfully!');
     } catch (error) {
       console.error('Error fetching video info:', error);
-      toast.error('Failed to find video. Please check the URL and try again.');
+      toast.error('Failed to find video. Please check the URL and try again. Make sure youtube-dl is installed on the server.');
     } finally {
       setIsLoading(false);
     }
@@ -34,12 +36,14 @@ const Index = () => {
     
     setIsDownloading(true);
     try {
+      console.log('Starting download for video:', videoInfo.id, 'with quality:', quality);
       const result = await downloadVideo(videoInfo.id, quality);
+      console.log('Download successful:', result);
       window.location.href = result.download_url;
       toast.success(`Download started for ${quality}!`);
     } catch (error) {
       console.error('Error downloading video:', error);
-      toast.error('Failed to download video. Please try again.');
+      toast.error('Failed to download video. Please try again or check server configuration.');
     } finally {
       setIsDownloading(false);
     }
