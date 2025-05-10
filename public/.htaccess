@@ -1,0 +1,21 @@
+
+# Enable rewriting
+RewriteEngine On
+
+# Handle API requests
+RewriteRule ^api/downloader$ api/downloader.php [L]
+
+# If the request is not for an existing file or directory
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Rewrite all other URLs to index.html for client-side routing
+RewriteRule ^ index.html [L]
+
+# Set default charset
+AddDefaultCharset UTF-8
+
+# Enable CORS
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type"
