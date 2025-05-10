@@ -16,6 +16,7 @@ export interface VideoFormat {
   quality: string;
   extension: string;
   filesize: string;
+  format_id?: string;
 }
 
 export interface DownloadResult {
@@ -31,7 +32,7 @@ const API_URL = '/api';
  */
 export async function fetchVideoInfo(url: string): Promise<VideoInfo> {
   try {
-    const response = await fetch(`${API_URL}/downloader.php`, {
+    const response = await fetch(`${API_URL}/downloader`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,15 +63,15 @@ export async function fetchVideoInfo(url: string): Promise<VideoInfo> {
 /**
  * Download a YouTube video with specified quality
  */
-export async function downloadVideo(url: string, quality: string): Promise<DownloadResult> {
+export async function downloadVideo(videoId: string, quality: string): Promise<DownloadResult> {
   try {
-    const response = await fetch(`${API_URL}/downloader.php`, {
+    const response = await fetch(`${API_URL}/downloader`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
         quality,
         action: 'download',
       }),

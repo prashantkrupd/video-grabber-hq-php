@@ -2,13 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Clock, FileVideo, Download, CheckCircle } from 'lucide-react';
-
-interface VideoQuality {
-  label: string;
-  value: string;
-  resolution: string;
-  recommended?: boolean;
-}
+import { VideoFormat } from '@/utils/api';
 
 interface VideoPreviewProps {
   videoInfo: {
@@ -17,6 +11,7 @@ interface VideoPreviewProps {
     thumbnail: string;
     duration: string;
     author: string;
+    formats: VideoFormat[];
   };
   onDownload: (quality: string) => void;
   isDownloading: boolean;
@@ -31,13 +26,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   selectedQuality,
   setSelectedQuality,
 }) => {
-  const qualities: VideoQuality[] = [
-    { label: '1080p Full HD', value: '1080p', resolution: '1920x1080', recommended: true },
-    { label: '720p HD', value: '720p', resolution: '1280x720' },
-    { label: '480p', value: '480p', resolution: '854x480' },
-    { label: '360p', value: '360p', resolution: '640x360' },
-    { label: 'Audio Only (MP3)', value: 'mp3', resolution: 'Audio' },
-  ];
+  // Use formats from the API if available, or fall back to default options
+  const availableFormats = videoInfo.formats && videoInfo.formats.length > 0 
+    ? videoInfo.formats 
+    : [
+        { quality: '1080p', extension: 'mp4', filesize: 'Best quality' },
+        { quality: '720p', extension: 'mp4', filesize: 'High quality' },
+        { quality: '480p', extension: 'mp4', filesize: 'Medium quality' },
+        { quality: '360p', extension: 'mp4', filesize: 'Low quality' },
+        { quality: 'mp3', extension: 'mp3', filesize: 'Audio only' },
+      ];
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden max-w-4xl mx-auto">
@@ -47,7 +45,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
             <img
               src={videoInfo.thumbnail}
               alt={videoInfo.title}
-              className="h-full object-cover"
+              className="h-full w-full object-cover"
             />
             <div className="play-button"></div>
           </div>
@@ -65,27 +63,34 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           <div className="mb-6">
             <h4 className="font-medium mb-2 text-gray-700">Select quality:</h4>
             <div className="space-y-2">
-              {qualities.map((quality) => (
+              {availableFormats.map((format) => (
                 <div
-                  key={quality.value}
+                  key={format.quality}
                   className={`border rounded-md p-3 cursor-pointer transition-all ${
-                    selectedQuality === quality.value
+                    selectedQuality === format.quality
                       ? 'border-yt-accent bg-blue-50'
                       : 'hover:bg-gray-50'
                   }`}
-                  onClick={() => setSelectedQuality(quality.value)}
+                  onClick={() => setSelectedQuality(format.quality)}
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <FileVideo className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="font-medium">{quality.label}</span>
-                      {quality.recommended && (
+                      <span className="font-medium">
+                        {format.quality === 'mp3' 
+                          ? 'Audio Only (MP3)' 
+                          : `${format.quality} ${format.quality === '1080p' ? 'Full HD' : format.quality === '720p' ? 'HD' : ''}`}
+                      </span>
+                      {format.quality === '1080p' && (
                         <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
                           Recommended
                         </span>
                       )}
                     </div>
-                    <span className="text-sm text-gray-500">{quality.resolution}</span>
+                    <span className="text-sm text-gray-500">
+                      {format.quality === 'mp3' ? 'Audio' : format.quality}
+                      {format.filesize ? ` (${format.filesize})` : ''}
+                    </span>
                   </div>
                 </div>
               ))}

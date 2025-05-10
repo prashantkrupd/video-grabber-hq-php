@@ -18,28 +18,8 @@ const Index = () => {
   const handleVideoSubmit = async (url: string) => {
     setIsLoading(true);
     try {
-      // Temporary mock data for the React preview since PHP won't run in the preview
-      const mockVideoInfo = {
-        id: 'dQw4w9WgXcQ',
-        title: 'Rick Astley - Never Gonna Give You Up (Official Music Video)',
-        thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-        duration: '3:33',
-        author: 'Rick Astley',
-        formats: [
-          { quality: '1080p', extension: 'mp4', filesize: '120MB' },
-          { quality: '720p', extension: 'mp4', filesize: '70MB' },
-          { quality: '480p', extension: 'mp4', filesize: '40MB' },
-          { quality: '360p', extension: 'mp4', filesize: '25MB' },
-          { quality: 'mp3', extension: 'mp3', filesize: '10MB' }
-        ]
-      };
-      
-      // In a real environment, you would use:
-      // const info = await fetchVideoInfo(url);
-      // setVideoInfo(info);
-      
-      // For the preview, we'll use the mock data
-      setVideoInfo(mockVideoInfo);
+      const info = await fetchVideoInfo(url);
+      setVideoInfo(info);
       toast.success('Video found successfully!');
     } catch (error) {
       console.error('Error fetching video info:', error);
@@ -54,18 +34,13 @@ const Index = () => {
     
     setIsDownloading(true);
     try {
-      // In a real environment, you would use:
-      // const result = await downloadVideo(url, quality);
-      // window.location.href = result.download_url;
-      
-      // For the preview, we'll simulate a download
-      setTimeout(() => {
-        toast.success(`Download started for ${quality}! (Simulated for preview)`);
-        setIsDownloading(false);
-      }, 2000);
+      const result = await downloadVideo(videoInfo.id, quality);
+      window.location.href = result.download_url;
+      toast.success(`Download started for ${quality}!`);
     } catch (error) {
       console.error('Error downloading video:', error);
       toast.error('Failed to download video. Please try again.');
+    } finally {
       setIsDownloading(false);
     }
   };

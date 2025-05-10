@@ -16,16 +16,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Include the YouTube download library (you would need to install youtube-dl or similar)
-// Here we're simulating the functionality without actually installing youtube-dl
+// Path to youtube-dl executable
+$ytdl_path = '/usr/local/bin/youtube-dl';
+// Check if youtube-dl is installed, if not use python based approach
+if (!file_exists($ytdl_path)) {
+    $ytdl_path = 'python3 -m youtube_dl';
+}
+
+// Directory to store downloaded videos
+$download_dir = '../downloads/';
+if (!file_exists($download_dir)) {
+    mkdir($download_dir, 0755, true);
+}
 
 function getVideoInfo($url) {
-    // In a real implementation, you would use youtube-dl or a similar library
-    // Example command: $output = shell_exec("youtube-dl --dump-json $url");
+    global $ytdl_path;
     
-    // For demo purposes, we'll return mock data
+    // Extract video ID for security validation
     $videoId = extractVideoId($url);
-    
     if (!$videoId) {
         return [
             'success' => false,
@@ -33,51 +41,113 @@ function getVideoInfo($url) {
         ];
     }
     
-    return [
-        'success' => true,
-        'data' => [
-            'id' => $videoId,
-            'title' => 'Sample YouTube Video Title',
-            'thumbnail' => "https://i.ytimg.com/vi/{$videoId}/maxresdefault.jpg",
-            'duration' => '10:30',
-            'author' => 'Sample Channel',
-            'formats' => [
-                [
+    // Get video info using youtube-dl
+    $command = "$ytdl_path -j $url 2>&1";
+    $output = shell_exec($command);
+    
+    if (!$output || strpos($output, 'ERROR') !== false) {
+        return [
+            'success' => false,
+            'error' => 'Failed to fetch video info: ' . $output
+        ];
+    }
+    
+    try {
+        $videoData = json_decode($output, true);
+        if (!$videoData) {
+            throw new Exception('Error parsing video data');
+        }
+        
+        // Format the video info for our frontend
+        $formats = [];
+        if (isset($videoData['formats']) && is_array($videoData['formats'])) {
+            $formatMap = [];
+            
+            // First pass: collect all formats
+            foreach ($videoData['formats'] as $format) {
+                $quality = isset($format['height']) ? $format['height'] . 'p' : 'audio';
+                $extension = isset($format['ext']) ? $format['ext'] : 'mp4';
+                $filesize = isset($format['filesize']) ? formatSize($format['filesize']) : 'Unknown';
+                
+                // For video formats with height
+                if (isset($format['height'])) {
+                    $formatKey = $format['height'] . 'p';
+                    if (!isset($formatMap[$formatKey]) || 
+                        (isset($format['filesize']) && isset($formatMap[$formatKey]['filesize']) && 
+                         $format['filesize'] > $formatMap[$formatKey]['filesize'])) {
+                        $formatMap[$formatKey] = [
+                            'quality' => $formatKey,
+                            'extension' => $extension,
+                            'filesize' => $filesize,
+                            'format_id' => $format['format_id']
+                        ];
+                    }
+                }
+                
+                // For audio-only format
+                if ($quality === 'audio' || (isset($format['acodec']) && $format['acodec'] !== 'none' && 
+                    (!isset($format['vcodec']) || $format['vcodec'] === 'none'))) {
+                    if (!isset($formatMap['mp3']) || 
+                        (isset($format['filesize']) && isset($formatMap['mp3']['filesize']) && 
+                         $format['filesize'] > $formatMap['mp3']['filesize'])) {
+                        $formatMap['mp3'] = [
+                            'quality' => 'mp3',
+                            'extension' => 'mp3',
+                            'filesize' => $filesize,
+                            'format_id' => $format['format_id']
+                        ];
+                    }
+                }
+            }
+            
+            // Push the collected formats to the formats array
+            foreach ($formatMap as $format) {
+                $formats[] = $format;
+            }
+            
+            // If no 1080p format was found, check if we can use the best format
+            if (!isset($formatMap['1080p']) && isset($videoData['height']) && $videoData['height'] >= 1080) {
+                $formats[] = [
                     'quality' => '1080p',
                     'extension' => 'mp4',
-                    'filesize' => '120MB'
-                ],
-                [
-                    'quality' => '720p',
-                    'extension' => 'mp4',
-                    'filesize' => '70MB'
-                ],
-                [
-                    'quality' => '480p',
-                    'extension' => 'mp4',
-                    'filesize' => '40MB'
-                ],
-                [
-                    'quality' => '360p',
-                    'extension' => 'mp4',
-                    'filesize' => '25MB'
-                ],
-                [
-                    'quality' => 'mp3',
-                    'extension' => 'mp3',
-                    'filesize' => '10MB'
-                ]
+                    'filesize' => 'Best quality',
+                    'format_id' => 'best[height<=1080]'
+                ];
+            }
+            
+            // Sort formats by quality (higher first)
+            usort($formats, function($a, $b) {
+                $qualityA = $a['quality'] === 'mp3' ? 0 : (int)$a['quality'];
+                $qualityB = $b['quality'] === 'mp3' ? 0 : (int)$b['quality'];
+                return $qualityB - $qualityA;
+            });
+        }
+        
+        // Prepare the response
+        return [
+            'success' => true,
+            'data' => [
+                'id' => $videoId,
+                'title' => isset($videoData['title']) ? $videoData['title'] : 'Unknown Title',
+                'thumbnail' => isset($videoData['thumbnail']) ? $videoData['thumbnail'] : '',
+                'duration' => isset($videoData['duration']) ? formatDuration($videoData['duration']) : 'Unknown',
+                'author' => isset($videoData['uploader']) ? $videoData['uploader'] : 'Unknown',
+                'formats' => $formats
             ]
-        ]
-    ];
+        ];
+    } catch (Exception $e) {
+        return [
+            'success' => false,
+            'error' => 'Error processing video data: ' . $e->getMessage()
+        ];
+    }
 }
 
 function downloadVideo($url, $quality) {
-    // In a real implementation, this would use youtube-dl to download the video
-    // Example: $output = shell_exec("youtube-dl -f 'bestvideo[height<=1080]+bestaudio/best[height<=1080]' $url -o video.mp4");
+    global $ytdl_path, $download_dir;
     
+    // Extract video ID for security and as filename base
     $videoId = extractVideoId($url);
-    
     if (!$videoId) {
         return [
             'success' => false,
@@ -85,16 +155,48 @@ function downloadVideo($url, $quality) {
         ];
     }
     
-    // Simulate a delay for processing
-    sleep(1);
+    // Determine format based on quality
+    $format = '';
+    $extension = 'mp4';
     
-    // Return a mock download URL
-    // In a real implementation, this would be the path to the downloaded file
+    if ($quality === 'mp3') {
+        $format = '-f bestaudio --extract-audio --audio-format mp3';
+        $extension = 'mp3';
+    } else {
+        // Extract the numeric part of the quality (e.g., "1080p" -> 1080)
+        $height = (int)str_replace('p', '', $quality);
+        if ($height > 0) {
+            // Select best video+audio format with height <= requested height
+            $format = "-f 'bestvideo[height<=$height]+bestaudio/best[height<=$height]'";
+        } else {
+            $format = '-f best';
+        }
+    }
+    
+    // Generate a unique filename
+    $filename = "youtube_" . $videoId . "_" . $quality . "_" . time() . "." . $extension;
+    $filepath = $download_dir . $filename;
+    
+    // Download the video
+    $command = "$ytdl_path $format -o '$filepath' $url 2>&1";
+    $output = shell_exec($command);
+    
+    if (!file_exists($filepath)) {
+        return [
+            'success' => false,
+            'error' => 'Download failed: ' . $output
+        ];
+    }
+    
+    // Return the download URL
+    $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
+    $download_url = $base_url . "/downloads/" . $filename;
+    
     return [
         'success' => true,
         'data' => [
-            'download_url' => "/downloads/{$videoId}_{$quality}.mp4",
-            'filename' => "youtube_video_{$quality}.mp4",
+            'download_url' => $download_url,
+            'filename' => $filename,
             'quality' => $quality
         ]
     ];
@@ -105,6 +207,30 @@ function extractVideoId($url) {
     preg_match($pattern, $url, $matches);
     
     return isset($matches[1]) ? $matches[1] : false;
+}
+
+function formatSize($bytes) {
+    if ($bytes < 1024) {
+        return $bytes . ' B';
+    } elseif ($bytes < 1048576) {
+        return round($bytes / 1024, 2) . ' KB';
+    } elseif ($bytes < 1073741824) {
+        return round($bytes / 1048576, 2) . ' MB';
+    } else {
+        return round($bytes / 1073741824, 2) . ' GB';
+    }
+}
+
+function formatDuration($seconds) {
+    $hours = floor($seconds / 3600);
+    $mins = floor($seconds / 60 % 60);
+    $secs = floor($seconds % 60);
+    
+    if ($hours > 0) {
+        return sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+    } else {
+        return sprintf('%02d:%02d', $mins, $secs);
+    }
 }
 
 // Main API logic
